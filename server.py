@@ -5,7 +5,7 @@ from io import BytesIO
 import numpy as np
 import prediction
 
-detector1,detector2,refine_net,craft_net = prediction.load_model()
+detector1, detector2 = prediction.load_model()
 
 
 app = FastAPI()
@@ -21,16 +21,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 def load_image_into_numpy_array(data):
     return np.array(Image.open(BytesIO(data)))
+
+
 @app.get("/")
 async def root():
-    return {"msg":"Hello World"}
+    return {"msg": "Hello World"}
 
 
 @app.post("/upload")
 async def getFile(file: UploadFile = File(...)):
     global img
     img = load_image_into_numpy_array(await file.read())
-    result = prediction.predict(img,detector1,detector2,refine_net,craft_net )
-    return {"file_name" : result}
+    result = prediction.predict(
+        img, detector1, detector2)
+    return {"file_name": result}

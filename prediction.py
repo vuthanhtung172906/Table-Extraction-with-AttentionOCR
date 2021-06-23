@@ -1,11 +1,11 @@
 import cv2
 from PIL import Image, ImageEnhance
-import numpy as np 
-from matplotlib import pyplot as plt 
-from craft_text_detector import read_image, load_craftnet_model, load_refinenet_model, get_prediction, export_detected_regions, empty_cuda_cache
+import numpy as np
+from matplotlib import pyplot as plt
 from vietocr.tool.predictor import Predictor
 from vietocr.tool.config import Cfg
-import crop_img 
+import crop_img
+
 
 def group_h_lines(h_lines, thin_thresh):
     new_h_lines = []
@@ -22,6 +22,8 @@ def group_h_lines(h_lines, thin_thresh):
         x_min, x_max = min(x) - int(5*thin_thresh), max(x) + int(5*thin_thresh)
         new_h_lines.append([x_min, thresh[1], x_max, thresh[1]])
     return new_h_lines
+
+
 def group_v_lines(v_lines, thin_thresh, img):
     new_v_lines = []
     while len(v_lines) > 0:
@@ -39,10 +41,12 @@ def group_v_lines(v_lines, thin_thresh, img):
             new_v_lines.append([thresh[0], y_min, thresh[0], y_max])
     return new_v_lines
 
+
 def processImg(img):
     img = crop_img.crop_imgFunc(img)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    thresh , img_bin = cv2.threshold(gray , 90 , 255 , cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    thresh, img_bin = cv2.threshold(
+        gray, 90, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     img_bin = 255-img_bin
     kernel_len = gray.shape[1]//120
     hor_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_len, 1))
@@ -53,7 +57,8 @@ def processImg(img):
 
     new_horizontal_lines = group_h_lines(h_lines, kernel_len)
     for i in range(len(new_horizontal_lines)):
-        cv2.line(img,(new_horizontal_lines[i][0], new_horizontal_lines[i][1]), (new_horizontal_lines[i][2], new_horizontal_lines[i][3]),(0, 255, 0), 1)
+        cv2.line(img, (new_horizontal_lines[i][0], new_horizontal_lines[i][1]), (
+            new_horizontal_lines[i][2], new_horizontal_lines[i][3]), (0, 255, 0), 1)
 
     kernel_len = gray.shape[1]//120
     ver_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, kernel_len))
@@ -62,7 +67,9 @@ def processImg(img):
     v_lines = cv2.HoughLinesP(vertical_lines, 1, np.pi/180, 30, maxLineGap=250)
     new_vertical_lines = group_v_lines(v_lines, kernel_len, img)
     for i in range(len(new_vertical_lines)):
-        cv2.line(img,(new_vertical_lines[i][0], new_vertical_lines[i][1]), (new_vertical_lines[i][2], new_vertical_lines[i][3]),(0, 255, 0), 1)
+        cv2.line(img, (new_vertical_lines[i][0], new_vertical_lines[i][1]), (
+            new_vertical_lines[i][2], new_vertical_lines[i][3]), (0, 255, 0), 1)
+
     def seg_intersect(line1: list, line2: list):
         a1, a2 = line1
         b1, b2 = line2
@@ -98,61 +105,48 @@ def processImg(img):
             continue
         if (i+6) == len(points):
             break
-        cells.append([points[i],points[i+1], points[i+6], points[i+7]])
-    return cells,img
+        cells.append([points[i], points[i+1], points[i+6], points[i+7]])
+    return cells, img
+
+
 def load_model():
-    refine_net = load_refinenet_model(cuda=True)
-    craft_net = load_craftnet_model(cuda=True)
-    ##& VietOCR 
+    # & VietOCR
     # set device to use cpu
     config1 = Cfg.load_config_from_name('vgg_seq2seq')
     config2 = Cfg.load_config_from_file('config.yml')
-    config1['cnn']['pretrained']=False
-    config2['cnn']['pretrained']=False
+    config1['cnn']['pretrained'] = False
+    config2['cnn']['pretrained'] = False
     config2['weights'] = './weights/transformerocr.pth'
     detector2 = Predictor(config2)
-    detector1 = Predictor(config1)  
-    return detector1,detector2,refine_net,craft_net
-def predict(img,detector1,detector2,refine_net,craft_net):
-    cells,img = processImg(img)
+    detector1 = Predictor(config1)
+    return detector1, detector2
+
+
+def predict(img, detector1, detector2):
+    cells, img = processImg(img)
     result2 = []
-    for id,cell in enumerate(cells):
-        if id>5 and (id+1)%5 ==0:
-            x_min = cell[0][0] ## Top 
-            x_max = cell[3][0] ##Right
-            y_min = cell[0][1] 
+    for id, cell in enumerate(cells):
+        if id > 5 and (id+1) % 5 == 0:
+            x_min = cell[0][0]  # Top
+            x_max = cell[3][0]  # Right
+            y_min = cell[0][1]
             y_max = cell[3][1] + 10
             cell_image = img[y_min:y_max, x_min:x_max]
             img_text = Image.fromarray(cell_image)
             result = detector2.predict(img_text)
             result2.append(result)
         else:
-            x_min = cell[0][0] ## Top 
-            x_max = cell[3][0] ##Right
-            y_min = cell[0][1] 
+            x_min = cell[0][0]  # Top
+            x_max = cell[3][0]  # Right
+            y_min = cell[0][1]
             y_max = cell[3][1]
             cell_image = img[y_min:y_max, x_min:x_max]
-            prediction_result= get_prediction(
-            image=cell_image,
-            craft_net=craft_net,
-            refine_net=refine_net,
-            text_threshold=0.7,
-            link_threshold=0.4,
-            low_text=0.4,
-            cuda=True,
-            long_size=1280
-            )
-            arr = prediction_result['boxes'].transpose(2,0,1).reshape(2,-1)
-            x_min = int(arr[0][np.argmin(arr,axis=1)[0]])
-            y_min = int(arr[1][np.argmin(arr,axis=1)[1]])
-            x_max = int(arr[0][np.argmax(arr,axis=1)[0]])
-            y_max = int(arr[1][np.argmax(arr,axis=1)[1]])
-            text_image = cell_image[y_min:y_max, x_min:x_max]
-            img_text = Image.fromarray(text_image)
+            img_text = Image.fromarray(cell_image)
             # # # predict
             result = detector1.predict(img_text)
             result2.append(result)
     result = []
-    for i in range(0,len(result2),5):
-        result.append([result2[i], result2[i+1],result2[i+2],result2[i+3],result2[i+4]])
+    for i in range(0, len(result2), 5):
+        result.append([result2[i], result2[i+1], result2[i+2],
+                       result2[i+3], result2[i+4]])
     return result
