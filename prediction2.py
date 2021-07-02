@@ -6,7 +6,7 @@ from vietocr.tool.predictor import Predictor
 from vietocr.tool.config import Cfg
 from craft_text_detector import Craft
 
-import crop_img
+import crop_img2
 
 
 def group_h_lines(h_lines, thin_thresh):
@@ -45,7 +45,7 @@ def group_v_lines(v_lines, thin_thresh, img):
 
 
 def processImg(img):
-    img, header = crop_img.crop_imgFunc(img)
+    img = crop_img2.crop_imgFunc(img)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     thresh, img_bin = cv2.threshold(
         gray, 90, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -109,7 +109,7 @@ def processImg(img):
             break
 
         cells.append([points[i], points[i+1], points[i+6], points[i+7]])
-    return cells, img, header
+    return cells, img
 
 
 def load_model():
@@ -126,19 +126,8 @@ def load_model():
     return detector1, detector2, craft
 
 
-def predict(img, detector1, detector2, craft):
-    cells, img, header = processImg(img)
-    headerDetect = craft.detect_text(image=header)
-    headerData = []
-    for box in headerDetect['boxes']:
-        y_min = int(box[0][1])
-        y_max = int(box[2][1])
-        x_min = int(box[0][0])
-        x_max = int(box[2][0])
-        text_image = header[y_min:y_max, x_min:x_max]
-        img_text = Image.fromarray(text_image)
-        result = detector1.predict(img_text)
-        headerData.append(result)
+def predict(img, detector1, detector2):
+    cells, img = processImg(img)
     result2 = []
     for id, cell in enumerate(cells):
         if id > 5 and (id+1) % 5 == 0:
@@ -164,4 +153,4 @@ def predict(img, detector1, detector2, craft):
     for i in range(0, len(result2), 5):
         result.append([result2[i], result2[i+1], result2[i+2],
                        result2[i+3], result2[i+4]])
-    return result, headerData
+    return result

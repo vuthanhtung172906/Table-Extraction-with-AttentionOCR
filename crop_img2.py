@@ -47,28 +47,6 @@ def reorder(biggest):
     diff = np.diff(myPoints, axis=1)
     myPointsNew[1] = myPoints[np.argmin(diff)] + [[5, -5]]
     myPointsNew[2] = myPoints[np.argmax(diff)] + [[-3, 3]]
-    x1, y1 = myPointsNew[0][0]
-    x2, y2 = myPointsNew[2][0]
-    x5 = x1 + (x1-x2)*y1/(y2-y1)
-    x3, y3 = myPointsNew[1][0]
-    x4, y4 = myPointsNew[3][0]
-    x6 = x3 + (x3-x4)*y3/(y4-y3)
-
-    myPointsNew[0] = [[int(x5), 0]]
-    point = Point(myPointsNew[0][0][0], myPointsNew[0][0][1])
-    line = LineString([(myPointsNew[1][0][0], myPointsNew[1][0][1]),
-                       (myPointsNew[3][0][0], myPointsNew[3][0][1])])
-
-    x = np.array(point.coords[0])
-
-    u = np.array(line.coords[0])
-    v = np.array(line.coords[len(line.coords)-1])
-
-    n = v - u
-    n /= np.linalg.norm(n, 2)
-
-    P = u + n*np.dot(x - u, n)
-    myPointsNew[1] = [[int(P[0]), int(P[1])]]
     return myPointsNew
 
 
@@ -143,6 +121,6 @@ def crop_imgFunc(img):
     pts2 = np.float32([[0, 0], [width, 0], [0, length], [width, length]])
     matrix = cv2.getPerspectiveTransform(pts1, pts2)
     table = cv2.warpPerspective(imgw, matrix, (int(width), int(length)))
-    header = table[0:250, :]
-    table = table[245:, 0:842]
-    return table, header
+
+    table = table[:, 0:842]
+    return table
